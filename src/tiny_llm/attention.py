@@ -70,7 +70,11 @@ class SimpleMultiHeadAttention:
 
 
 def causal_mask(L: int, S: int, dtype: mx.Dtype) -> mx.array:
-    pass
+    assert not L > S, "S must be greater than or equal to L"
+    mask = mx.ones((L, S))
+    mask = mx.triu(mask, (S - L + 1))
+    mask = mx.where(mask, -mx.inf, 0)
+    return mask.astype(dtype)
 
 
 def scaled_dot_product_attention_grouped(
@@ -80,7 +84,24 @@ def scaled_dot_product_attention_grouped(
     scale: float | None = None,
     mask: mx.array | str | None = None,
 ) -> mx.array:
-    pass
+    h_q, q_len, d_model = query.shape[-3:]
+    h, seq_len = key.shape[-3:-1]
+    num_repeats = h_q // h
+    q = query.reshape(-1, h, num_repeats, q_len, d_model)
+    k = key.reshape(-1, h, 1, seq_len, d_model)
+    v = value.reshape(-1, h, 1, seq_len, d_model)
+    if type(mask) is str:
+        mask = causal_mask(q_len, seq_len, q.dtype)
+    elif mask is not None:
+        mask = mask.reshape(-1, h, num_repeats, q_len, seq_len)
+    attention = scaled_dot_product_attention_simple(
+        q,
+        k,
+        v,
+        scale=scale,
+        mask=mask,
+    )
+    return attention.reshape(query.shape)
 
 
 def paged_attention(

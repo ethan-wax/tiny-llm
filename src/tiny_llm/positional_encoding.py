@@ -21,7 +21,8 @@ class RoPE:
     def __call__(
         self, x: mx.array, offset: list[slice] | slice | None = None
     ) -> mx.array:
-        N, L, H, D = x.shape
+        N = x.shape[:-3]
+        L, H, D = x.shape[-3:]
         if not offset:
             offset = slice(0, L)
         cos, sin = (
